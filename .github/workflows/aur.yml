@@ -1,0 +1,151 @@
+{
+  "name": "Daily AUR signed mirror",
+  "on": {
+    "schedule": [
+      {
+        "cron": "23 20 * * *"
+      }
+    ],
+    "workflow_dispatch": {
+      "inputs": {
+        "force": {
+          "description": "Rebuild all ten bases; require all artifacts before publishing",
+          "type": "boolean",
+          "default": false
+        }
+      }
+    }
+  },
+  "permissions": {
+    "contents": "read"
+  },
+  "concurrency": {
+    "group": "aur-mirror",
+    "cancel-in-progress": false
+  },
+  "defaults": {
+    "run": {
+      "shell": "bash"
+    }
+  },
+  "jobs": {
+    "discover": {
+      "runs-on": "ubuntu-latest",
+      "timeout-minutes": 15,
+      "outputs": {
+        "matrix": "${{ steps.discovery.outputs.matrix }}",
+        "has_changes": "${{ steps.discovery.outputs.has_changes }}",
+        "require_all": "${{ steps.discovery.outputs.require_all }}"
+      },
+      "steps": [
+        {
+          "uses": "actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+          "with": {
+            "persist-credentials": false
+          }
+        },
+        {
+          "name": "Unit and workflow contract tests",
+          "run": "python3 -m unittest discover -s tests -v"
+        },
+        {
+          "id": "discovery",
+          "name": "Resolve official AUR commits and versions",
+          "env": {
+            "FORCE": "${{ inputs.force }}"
+          },
+          "run": "args=(); if [[ \"$FORCE\" == true ]]; then args+=(--force); fi\npython3 scripts/pipeline.py discover \"${args[@]}\""
+        }
+      ]
+    },
+    "build": {
+      "needs": "discover",
+      "if": "${{ needs.discover.outputs.has_changes == 'true' }}",
+      "runs-on": "ubuntu-latest",
+      "timeout-minutes": 90,
+      "strategy": {
+        "fail-fast": false,
+        "max-parallel": 4,
+        "matrix": "${{ fromJSON(needs.discover.outputs.matrix) }}"
+      },
+      "steps": [
+        {
+          "uses": "actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+          "with": {
+            "persist-credentials": false
+          }
+        },
+        {
+          "name": "Unprivileged Arch makepkg in isolated Docker",
+          "env": {
+            "PKGBASE": "${{ matrix.pkgbase }}",
+            "AUR_COMMIT": "${{ matrix.commit }}",
+            "AUR_VERSION": "${{ matrix.aur_version }}"
+          },
+          "run": "bash scripts/build.sh \"$PKGBASE\" \"$AUR_COMMIT\" \"$AUR_VERSION\""
+        },
+        {
+          "name": "Upload only validated package outputs",
+          "uses": "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+          "with": {
+            "name": "aur-${{ matrix.pkgbase }}",
+            "path": "artifacts/",
+            "if-no-files-found": "error",
+            "retention-days": 7,
+            "compression-level": 0,
+            "include-hidden-files": false
+          }
+        }
+      ]
+    },
+    "publish": {
+      "needs": [
+        "discover",
+        "build"
+      ],
+      "if": "${{ always() && !cancelled() && needs.discover.result == 'success' && needs.discover.outputs.has_changes == 'true' && (needs.build.result == 'success' || needs.build.result == 'failure') }}",
+      "runs-on": "ubuntu-latest",
+      "timeout-minutes": 15,
+      "steps": [
+        {
+          "uses": "actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+          "with": {
+            "persist-credentials": false
+          }
+        },
+        {
+          "name": "Download successful per-base artifacts",
+          "uses": "actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093",
+          "with": {
+            "pattern": "aur-*",
+            "path": "artifacts",
+            "merge-multiple": true
+          }
+        },
+        {
+          "name": "Validate discovery provenance and transfer contract",
+          "env": {
+            "MATRIX": "${{ needs.discover.outputs.matrix }}",
+            "REQUIRE_ALL": "${{ needs.discover.outputs.require_all }}"
+          },
+          "run": "printf '%s\\n' \"$MATRIX\" > matrix.json\nargs=(); if [[ \"$REQUIRE_ALL\" == true ]]; then args+=(--require-all); fi\npython3 scripts/pipeline.py pack artifacts transfer.tar matrix.json \"${args[@]}\""
+        },
+        {
+          "name": "Stream to restricted SSH forced command",
+          "env": {
+            "AUR_UPLOAD_KEY": "${{ secrets.AUR_UPLOAD_KEY }}",
+            "AUR_UPLOAD_HOST": "${{ vars.AUR_UPLOAD_HOST }}",
+            "AUR_UPLOAD_PORT": "${{ vars.AUR_UPLOAD_PORT }}",
+            "AUR_UPLOAD_USER": "${{ vars.AUR_UPLOAD_USER }}",
+            "AUR_SSH_KNOWN_HOSTS": "${{ vars.AUR_SSH_KNOWN_HOSTS }}"
+          },
+          "run": "bash scripts/upload.sh transfer.tar"
+        },
+        {
+          "name": "Read back exact public manifest and archive hashes",
+          "run": "python3 scripts/pipeline.py verify artifacts"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+.tools/
+.test-output/
+artifacts/
+matrix.json
+transfer.tar
