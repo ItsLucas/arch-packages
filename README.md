@@ -1,6 +1,6 @@
 # lucas-aur：每日 AUR 二进制镜像
 
-私有源码仓库：`ItsLucas/arch-packages`。公开镜像：
+公开源码仓库：`ItsLucas/arch-packages`。公开镜像：
 `https://mirrors.5cena.cc/arch/aur/x86_64/`；数据库名 `lucas-aur`。
 
 ## 工作方式
@@ -40,7 +40,7 @@
 
 ## 配置（由部署者完成）
 
-创建**私有**仓库后设置：
+本仓库为**公开**仓库，使用标准 GitHub-hosted runner。配置项：
 
 | 类型 | 名称 | 内容 |
 | --- | --- | --- |
@@ -104,7 +104,7 @@ Server = https://mirrors.5cena.cc/arch/aur/$arch
 
 ## 许可证与责任
 
-私有源码仓库不意味着构建产物可以公开再分发。公开镜像必须逐一满足各软件的
+公开构建配方不意味着构建产物可以公开再分发。公开镜像必须逐一满足各软件的
 许可证、EULA、版权声明、源码提供义务及商标限制，尤其 Google/Android、Chrome、
 VS Code、Claude 和 Copilot 等专有组件。上线前应核查最新条款；不能再分发的包
 不得仅因 AUR 有 PKGBUILD 就公开提供。签名只证明仓库发布者，不是上游安全保证。
