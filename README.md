@@ -83,8 +83,8 @@ GPG 签名 key 仅保留在服务器，CI 无需也不应持有它。服务端�
 curl -fLo repo-key.asc https://mirrors.5cena.cc/arch/aur/repo-key.asc
 gpg --show-keys --with-fingerprint repo-key.asc
 sudo pacman-key --add repo-key.asc
-# 用核对后的真实完整指纹替换下方占位符，不要原样执行。
-sudo pacman-key --lsign-key '<已核对的完整指纹>'
+# 已核对的仓库签名公钥指纹：
+sudo pacman-key --lsign-key B8D78EC7A67859A6E603B8D04A53C0114627F21D
 ```
 
 再手动添加至 `/etc/pacman.conf`，不要改动已有 Surface 源：

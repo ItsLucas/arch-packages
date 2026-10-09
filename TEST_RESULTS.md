@@ -2,12 +2,16 @@
 
 ## 父任务集成验证（当前进度）
 
-- runner 测试 12 项通过，server 测试 24 项通过，Bash/actionlint 通过；独立审查发现的损坏多-frame zstd 包完整性问题正在修复，不能据此宣布最终验收。
+- runner 测试 13 项通过，server 测试 33 项通过，Bash/actionlint 通过；独立审查发现的损坏多-frame zstd 包问题已修复并复审通过，坏包不会签名或切换快照。目标服务器 Python 3.14.4 也实际通过 33 项 server 测试。
+- Actions 首次构建 9/10 成功，Copilot 被过严的 recipe symlink 检查拒绝；改为只允许 strict-resolve 后仍在隔离目录内的相对链接，绝对/越界/悬空/环形/.git 链接拒绝，并完成独立审查。
+- Actions 第二轮全量构建及发布全部成功：[run 37871675267](https://github.com/ItsLucas/arch-packages/actions/runs/37871675267)，代码 commit `ee0db92e62a4b225da757588f148e3a7fe83ea08`。
+- 公网验收实际下载全部 10 个包及 2 个索引、签名与公钥；SHA256、12 份 GPG 签名、DB/files 各 10 条 name/version/filename/hash 全部一致。下载总字节 988461964，逐包记录位于部署工作区 `acceptance-final/VERIFIED.json`。
+- 隔离 pacman 在 Required DatabaseRequired 下成功同步，列出全部 10 包；查询实时 AUR 得到空矩阵，不重复构建。系统 pacman.conf、已安装软件未修改，Surface timer 保持 active。
 - parent 修复了 USTAR/PAX 传输不兼容与 content-addressed filename 的公开回读不匹配，并加入回归断言。
 - i7z 原始配方失败结果保留在下面；经显式审查、commit/hash 约束的完整性修补后，真实 Docker makepkg 已成功构建 `i7z 0.28-1`。证据见 `overrides/README.md`。
 - 真实 Docker 构建 `cockpit-file-sharing 4.5.7-1` 与 `cockpit-sensors 1.1-1` 均成功；前者上游 make 输出 system_files 缺失的 ignored error，包构建成功不代表服务端业务功能测试完成。
 - 服务端 bootstrap 已用真实 platform-tools 验证 SSH 受限上传、server-only GPG、repo-add、原子快照与公网包/数据库签名和 SHA256；没有修改系统 pacman.conf 或安装包。
-- 尚未开始 GitHub Actions 全量构建，10/10 验收待完成。
+- 已完成 10/10 Actions 构建与公开签名仓库验收；详细结果在本节新增记录。以下子任务记录为历史验证过程。
 
 ## 子任务最初本地验证（历史结果）
 
