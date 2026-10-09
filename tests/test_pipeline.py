@@ -75,6 +75,39 @@ class CurrentTests(PipelineTestCase):
             p.discover_current(bases, rpc, lambda base: 'bad-ref')
         self.assertEqual(len(p.PACKAGE_BASES), 10)
 
+class RecipeTests(PipelineTestCase):
+    def test_allows_internal_license_link_but_rejects_escape_and_git_metadata(self):
+        p = self.module()
+        with tempfile.TemporaryDirectory(dir=ROOT) as tmp:
+            root = Path(tmp) / 'recipe'
+            root.mkdir()
+            (root / 'LICENSE').write_text('recipe license')
+            (root / 'LICENSES').mkdir()
+            link = root / 'LICENSES/0BSD.txt'
+            link.symlink_to('../LICENSE')
+            p.validate_recipe(root)
+            link.unlink()
+            (Path(tmp) / 'outside').write_text('existing external file')
+            link.symlink_to('../../outside')
+            with self.assertRaises(ValueError):
+                p.validate_recipe(root)
+            link.unlink()
+            link.symlink_to(root / 'LICENSE')
+            with self.assertRaises(ValueError):
+                p.validate_recipe(root)
+            link.unlink()
+            link.symlink_to('missing')
+            with self.assertRaises(ValueError):
+                p.validate_recipe(root)
+            link.unlink()
+            link.symlink_to('0BSD.txt')
+            with self.assertRaises(ValueError):
+                p.validate_recipe(root)
+            link.unlink()
+            (root / '.git').mkdir()
+            with self.assertRaises(ValueError):
+                p.validate_recipe(root)
+
 class ArtifactTests(PipelineTestCase):
     def test_collect_excludes_debug_and_rejects_symlinks(self):
         p = self.module()

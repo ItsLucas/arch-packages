@@ -89,6 +89,22 @@ def package_files(directory):
     return result
 
 
+def validate_recipe(root):
+    root = Path(root).resolve(strict=True)
+    for path in root.rglob('*'):
+        if path.name == '.git':
+            raise ValueError('recipe git metadata is not permitted')
+        if path.is_symlink():
+            try:
+                if path.readlink().is_absolute():
+                    raise ValueError('absolute recipe link is not permitted')
+                target = path.resolve(strict=True)
+                if not target.is_relative_to(root):
+                    raise ValueError('recipe link escapes isolated build directory')
+            except (OSError, RuntimeError) as exc:
+                raise ValueError('dangling or cyclic recipe link') from exc
+
+
 def collect(source, output, provenance):
     validate_provenance(provenance)
     files = package_files(source)

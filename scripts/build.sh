@@ -21,13 +21,11 @@ mkdir "$work/recipe"
 git clone --no-checkout "https://aur.archlinux.org/$base.git" "$work/checkout"
 git -C "$work/checkout" cat-file -e "$commit^{commit}"
 git -C "$work/checkout" archive --format=tar "$commit" | tar -xf - -C "$work/recipe"
-python3 - "$work/recipe" <<'PY'
-from pathlib import Path
+python3 - "$script_dir" "$work/recipe" <<'PY'
 import sys
-root = Path(sys.argv[1])
-for path in root.rglob('*'):
-    if path.is_symlink() or path.name == '.git':
-        raise SystemExit('recipe links/git metadata are not permitted')
+sys.path.insert(0, sys.argv[1])
+from pipeline import validate_recipe
+validate_recipe(sys.argv[2])
 PY
 # Only explicit, hash-bound audited repairs are applied on the trusted runner.
 python3 "$script_dir/recipe_overrides.py" "$base" "$commit" "$work/recipe/PKGBUILD"
